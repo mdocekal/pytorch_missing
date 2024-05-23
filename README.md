@@ -1,2 +1,5 @@
 # pytorch_missing
-Repository with missing features in PyTorch.
+Package with missing features in PyTorch.
+
+## Install
+
