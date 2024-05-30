@@ -1,4 +1,5 @@
 #include <torch/extension.h>
+#include <ATen/Parallel.h>
 
 /**
  * Computes dot product for each edge.
@@ -30,9 +31,11 @@ torch::Tensor indices_dot_product(torch::Tensor x, torch::Tensor y, torch::Tenso
     auto from = indices.index({0});
     auto to = indices.index({1});
 
-    for (int i = 0; i < indices.size(1); i++) {
-        res[i] = (x[from[i]] * y[to[i]]).sum();
-    }
+    at::parallel_for(0, indices.size(1), 1, [&](int64_t begin, int64_t end) {
+        for (auto i = begin; i < end; i++) {
+            res[i] = (x[from[i]] * y[to[i]]).sum();
+        }
+    });
     return res;
 }
 
@@ -43,11 +46,12 @@ std::tuple<torch::Tensor, torch::Tensor> indices_dot_product_backward(torch::Ten
     auto from = indices.index({0});
     auto to = indices.index({1});
 
-    for (int i = 0; i < indices.size(1); i++) {
-        grad_x[from[i]] += grad[i] * y[to[i]];
-        grad_y[to[i]] += grad[i] * x[from[i]];
-    }
-
+    at::parallel_for(0, indices.size(1), 1, [&](int64_t begin, int64_t end) {
+        for (auto i = begin; i < end; i++) {
+            grad_x[from[i]] += grad[i] * y[to[i]];
+            grad_y[to[i]] += grad[i] * x[from[i]];
+        }
+    });
     return std::make_tuple(grad_x, grad_y);
 }
 

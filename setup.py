@@ -32,10 +32,10 @@ setup_args = dict(
     python_requires='>=3.10',
     install_requires=REQUIREMENTS,
     ext_modules=[
-        cpp_extension.CppExtension('pytorch_missing.indices_dot_product', ['pytorch_missing/indices_dot_product.cpp'], extra_compile_args=['-D_GLIBCXX_USE_CXX11_ABI=0']),
-        cpp_extension.CppExtension('pytorch_missing.indices_scatter', ['pytorch_missing/indices_scatter.cpp'], extra_compile_args=['-D_GLIBCXX_USE_CXX11_ABI=0'])
+        cpp_extension.CppExtension('pytorch_missing.indices_dot_product', ['pytorch_missing/indices_dot_product.cpp'], extra_compile_args=['-O3']),
+        cpp_extension.CppExtension('pytorch_missing.indices_scatter', ['pytorch_missing/indices_scatter.cpp'], extra_compile_args=['-O3'])
     ],
-    cmdclass={'build_ext': cpp_extension.BuildExtension}
+    cmdclass={'build_ext': cpp_extension.BuildExtension.with_options(no_python_abi_suffix=True, use_ninja=False)}
 )
 
 if __name__ == '__main__':
