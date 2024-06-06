@@ -5,6 +5,7 @@ Created on 05.11.21
 :author:     Martin Dočekal
 """
 from setuptools import setup, find_packages
+import torch
 from torch.utils import cpp_extension
 
 
@@ -17,6 +18,15 @@ with open('README.md') as readme_file:
 
 with open("requirements.txt") as f:
     REQUIREMENTS = [line.strip() for line in f if is_requirement(line)]
+
+ext_modules = [
+    cpp_extension.CppExtension('pytorch_missing.indices_dot_product', ['pytorch_missing/csrc/indices_dot_product.cpp'], extra_compile_args=['-O3']),
+    cpp_extension.CppExtension('pytorch_missing.indices_scatter', ['pytorch_missing/csrc/indices_scatter.cpp'], extra_compile_args=['-O3'])
+]
+
+if torch.cuda.is_available():
+    ext_modules.append(cpp_extension.CUDAExtension('pytorch_missing.indices_dot_product_cuda', ['pytorch_missing/csrc/cuda/indices_dot_product.cu'], extra_compile_args={'cxx': ['-O3'], 'nvcc': ['-O3']}))
+    ext_modules.append(cpp_extension.CUDAExtension('pytorch_missing.indices_scatter_cuda', ['pytorch_missing/csrc/cuda/indices_scatter.cu'], extra_compile_args={'cxx': ['-O3'], 'nvcc': ['-O3']}))
 
 setup_args = dict(
     name='pytorch_missing',
@@ -31,10 +41,7 @@ setup_args = dict(
     url='https://github.com/mdocekal/pytorch_missing',
     python_requires='>=3.10',
     install_requires=REQUIREMENTS,
-    ext_modules=[
-        cpp_extension.CppExtension('pytorch_missing.indices_dot_product', ['pytorch_missing/indices_dot_product.cpp'], extra_compile_args=['-O3']),
-        cpp_extension.CppExtension('pytorch_missing.indices_scatter', ['pytorch_missing/indices_scatter.cpp'], extra_compile_args=['-O3'])
-    ],
+    ext_modules=ext_modules,
     cmdclass={'build_ext': cpp_extension.BuildExtension.with_options(no_python_abi_suffix=True, use_ninja=False)}
 )
 

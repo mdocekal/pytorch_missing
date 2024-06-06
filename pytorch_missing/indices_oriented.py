@@ -7,13 +7,16 @@ Contains indices oriented functions.
 """
 
 import torch
-import pytorch_missing.indices_dot_product as torch_extension_indices_dot_product
+
+from pytorch_missing.indices_dot_product import indices_dot_product_forward, indices_dot_product_backward
+from pytorch_missing.indices_dot_product_cuda import indices_dot_product_forward_cuda, indices_dot_product_backward_cuda
 from pytorch_missing.indices_scatter import indices_weighted_scatter_sum_forward, indices_weighted_scatter_sum_backward
+from pytorch_missing.indices_scatter_cuda import indices_weighted_scatter_sum_forward_cuda, indices_weighted_scatter_sum_backward_cuda
 
 
 class IndicesDotProduct(torch.autograd.Function):
     """
-    Computes dot product for index pair.
+    Computes dot product for each indices pair.
 
      Example:
         x = [
@@ -46,7 +49,11 @@ class IndicesDotProduct(torch.autograd.Function):
         :return: dot product for each index pair
         """
 
-        res = torch_extension_indices_dot_product.forward(x, y, index)
+        if x.is_cuda:
+            res = indices_dot_product_forward_cuda(x, y, index)
+        else:
+            res = indices_dot_product_forward(x, y, index)
+
         ctx.save_for_backward(x, y, index)
 
         return res
@@ -62,14 +69,17 @@ class IndicesDotProduct(torch.autograd.Function):
         """
 
         x, y, index = ctx.saved_tensors
-        grad_x, grad_y = torch_extension_indices_dot_product.backward(grad_output, x, y, index)
+        if x.is_cuda:
+            grad_x, grad_y = indices_dot_product_backward_cuda(grad_output, x, y, index)
+        else:
+            grad_x, grad_y = indices_dot_product_backward(grad_output, x, y, index)
 
         return grad_x, grad_y, None
 
 
 def indices_dot_product(x: torch.Tensor, y: torch.Tensor, index: torch.Tensor) -> torch.Tensor:
     """
-    Computes dot product for index pair.
+    Computes dot product for each indices pair.
 
     Example:
         x = [
@@ -130,7 +140,11 @@ class IndicesWeightedScatterSum(torch.autograd.Function):
         :return: The reduced matrix of shape (max(indices[:, 1]) + 1, val.shape[1])
         """
 
-        res = indices_weighted_scatter_sum_forward(val, indices, weights)
+        if val.is_cuda:
+            res = indices_weighted_scatter_sum_forward_cuda(val, indices, weights)
+        else:
+            res = indices_weighted_scatter_sum_forward(val, indices, weights)
+
         ctx.save_for_backward(val, indices, weights)
 
         return res
@@ -146,7 +160,10 @@ class IndicesWeightedScatterSum(torch.autograd.Function):
         """
 
         val, indices, weights = ctx.saved_tensors
-        grad_val, grad_weights = indices_weighted_scatter_sum_backward(grad_output, val, indices, weights)
+        if val.is_cuda:
+            grad_val, grad_weights = indices_weighted_scatter_sum_backward_cuda(grad_output, val, indices, weights)
+        else:
+            grad_val, grad_weights = indices_weighted_scatter_sum_backward(grad_output, val, indices, weights)
 
         return grad_val, None, grad_weights
 

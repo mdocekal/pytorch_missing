@@ -1,8 +1,9 @@
 #include <torch/extension.h>
 #include <ATen/Parallel.h>
+#include <iostream>
 
 /**
- * Computes dot product for each edge.
+ * Computes dot product for each indices pair.
  * Example:
  *      x = [
  *          [1, 2],
@@ -31,7 +32,7 @@ torch::Tensor indices_dot_product(torch::Tensor x, torch::Tensor y, torch::Tenso
     auto from = indices.index({0});
     auto to = indices.index({1});
 
-    at::parallel_for(0, indices.size(1), 1, [&](int64_t begin, int64_t end) {
+    at::parallel_for(0, indices.size(1), 0, [&](int64_t begin, int64_t end) {
         for (auto i = begin; i < end; i++) {
             res[i] = (x[from[i]] * y[to[i]]).sum();
         }
@@ -46,16 +47,29 @@ std::tuple<torch::Tensor, torch::Tensor> indices_dot_product_backward(torch::Ten
     auto from = indices.index({0});
     auto to = indices.index({1});
 
-    at::parallel_for(0, indices.size(1), 1, [&](int64_t begin, int64_t end) {
+    std::mutex mutex;
+
+    at::parallel_for(0, indices.size(1), 0, [&](int64_t begin, int64_t end) {
+        auto grad_x_local = torch::zeros_like(x);
+        auto grad_y_local = torch::zeros_like(y);
+
         for (auto i = begin; i < end; i++) {
-            grad_x[from[i]] += grad[i] * y[to[i]];
-            grad_y[to[i]] += grad[i] * x[from[i]];
+            grad_x_local[from[i]] += grad[i] * y[to[i]];
+            grad_y_local[to[i]] += grad[i] * x[from[i]];
         }
+
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+            grad_x += grad_x_local;
+            grad_y += grad_y_local;
+        }
+
     });
     return std::make_tuple(grad_x, grad_y);
 }
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
-  m.def("forward", &indices_dot_product, "Indices dot product forward");
-  m.def("backward", &indices_dot_product_backward, "Indices dot product backward");
+  m.def("indices_dot_product_forward", &indices_dot_product, "Indices dot product forward (cuda)");
+  m.def("indices_dot_product_backward", &indices_dot_product_backward, "Indices dot product backward (cuda)");
 }
+
