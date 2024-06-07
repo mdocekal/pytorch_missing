@@ -1,5 +1,6 @@
 #include <torch/extension.h>
 #include <ATen/Parallel.h>
+#include <ATen/cuda/Atomic.cuh>
 #include "utils.cuh"
 
 template <typename scalar_t>
@@ -11,7 +12,7 @@ __global__ void indices_weighted_scatter_sum_cuda_kernel(const scalar_t* val, co
     }
 
     for (int64_t i = 0; i < cols; i++) {
-        atomicAdd(&res[reduce_group[pair_i] * cols + i], val[reduce_from[pair_i] * cols + i] * weights[pair_i]);
+        gpuAtomicAdd(&res[reduce_group[pair_i] * cols + i], val[reduce_from[pair_i] * cols + i] * weights[pair_i]);
     }
 }
 
@@ -40,7 +41,7 @@ torch::Tensor indices_weighted_scatter_sum(torch::Tensor val, torch::Tensor indi
     auto reduce_group = indices.index({0});
     auto reduce_from = indices.index({1});
 
-    AT_DISPATCH_FLOATING_TYPES(val.scalar_type(), "indices_weighted_scatter_sum_cuda", ([&] {
+    AT_DISPATCH_FLOATING_TYPES_AND2(at::ScalarType::Half, at::ScalarType::BFloat16, val.scalar_type(), "indices_weighted_scatter_sum_cuda", ([&] {
         indices_weighted_scatter_sum_cuda_kernel<scalar_t><<<BLOCKS(indices.size(1)), THREADS>>>(
             val.contiguous().data_ptr<scalar_t>(), reduce_group.contiguous().data_ptr<int64_t>(), reduce_from.contiguous().data_ptr<int64_t>(), weights.contiguous().data_ptr<scalar_t>(), res.data_ptr<scalar_t>(), val.size(1), indices.size(1)
         );
@@ -58,7 +59,7 @@ __global__ void indices_weighted_scatter_sum_backward_cuda_kernel(const scalar_t
     }
 
     for (int64_t i = 0; i < cols; i++) {
-        atomicAdd(&grad_val[reduce_from[pair_i] * cols + i], grad[reduce_group[pair_i]*cols + i] * weights[pair_i]);
+        gpuAtomicAdd(&grad_val[reduce_from[pair_i] * cols + i], grad[reduce_group[pair_i]*cols + i] * weights[pair_i]);
     }
 
     grad_weights[pair_i] = 0;
@@ -76,7 +77,7 @@ std::tuple<torch::Tensor, torch::Tensor> indices_weighted_scatter_sum_backward(t
     auto reduce_group = indices.index({0});
     auto reduce_from = indices.index({1});
 
-    AT_DISPATCH_FLOATING_TYPES(val.scalar_type(), "indices_weighted_scatter_sum_backward_cuda", ([&] {
+    AT_DISPATCH_FLOATING_TYPES_AND2(at::ScalarType::Half, at::ScalarType::BFloat16, val.scalar_type(), "indices_weighted_scatter_sum_backward_cuda", ([&] {
     indices_weighted_scatter_sum_backward_cuda_kernel<scalar_t><<<BLOCKS(indices.size(1)), THREADS>>>(
         grad.contiguous().data_ptr<scalar_t>(), val.contiguous().data_ptr<scalar_t>(), reduce_group.contiguous().data_ptr<int64_t>(), reduce_from.contiguous().data_ptr<int64_t>(), weights.contiguous().data_ptr<scalar_t>(), grad_val.data_ptr<scalar_t>(), grad_weights.data_ptr<scalar_t>(), val.size(1), indices.size(1)
     );

@@ -1,6 +1,8 @@
 #include <torch/extension.h>
 #include <ATen/Parallel.h>
+#include <ATen/cuda/Atomic.cuh>
 #include "utils.cuh"
+
 
 template <typename scalar_t>
 __global__ void indices_dot_product_cuda_kernel(const scalar_t* x, const scalar_t* y, const int64_t* from, const int64_t* to, scalar_t* res, int64_t cols, int64_t pairs) {
@@ -50,7 +52,7 @@ torch::Tensor indices_dot_product(torch::Tensor x, torch::Tensor y, torch::Tenso
     auto from = indices.index({0});
     auto to = indices.index({1});
 
-    AT_DISPATCH_FLOATING_TYPES(x.scalar_type(), "indices_dot_product_cuda", ([&] {
+    AT_DISPATCH_FLOATING_TYPES_AND2(at::ScalarType::Half, at::ScalarType::BFloat16, x.scalar_type(), "indices_dot_product_cuda", ([&] {
         indices_dot_product_cuda_kernel<scalar_t><<<BLOCKS(indices.size(1)), THREADS>>>(
             x.contiguous().data_ptr<scalar_t>(), y.contiguous().data_ptr<scalar_t>(), from.contiguous().data_ptr<int64_t>(), to.contiguous().data_ptr<int64_t>(), res.data_ptr<scalar_t>(), x.size(1), indices.size(1)
         );
@@ -73,8 +75,8 @@ __global__ void indices_dot_product_backward_cuda_kernel(const scalar_t* grad, c
     auto to_offset = to[pair_i] * cols;
 
     for (int64_t i = 0; i < cols; i++) {
-        atomicAdd(&grad_x[from_offset + i], grad_for_pair * y[to_offset + i]);
-        atomicAdd(&grad_y[to_offset + i], grad_for_pair * x[from_offset + i]);
+        gpuAtomicAdd(&grad_x[from_offset + i], grad_for_pair * y[to_offset + i]);
+        gpuAtomicAdd(&grad_y[to_offset + i], grad_for_pair * x[from_offset + i]);
     }
 }
 
@@ -86,7 +88,7 @@ std::tuple<torch::Tensor, torch::Tensor> indices_dot_product_backward(torch::Ten
     auto from = indices.index({0});
     auto to = indices.index({1});
 
-    AT_DISPATCH_FLOATING_TYPES(x.scalar_type(), "indices_dot_product_backward_cuda", ([&] {
+    AT_DISPATCH_FLOATING_TYPES_AND2(at::ScalarType::Half, at::ScalarType::BFloat16, x.scalar_type(), "indices_dot_product_backward_cuda", ([&] {
         indices_dot_product_backward_cuda_kernel<scalar_t><<<BLOCKS(indices.size(1)), THREADS>>>(
             grad.contiguous().data_ptr<scalar_t>(), x.contiguous().data_ptr<scalar_t>(), y.contiguous().data_ptr<scalar_t>(), from.contiguous().data_ptr<int64_t>(), to.contiguous().data_ptr<int64_t>(), grad_x.data_ptr<scalar_t>(), grad_y.data_ptr<scalar_t>(), x.size(1), indices.size(1)
         );

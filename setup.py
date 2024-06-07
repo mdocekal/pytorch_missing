@@ -21,12 +21,14 @@ with open("requirements.txt") as f:
 
 ext_modules = [
     cpp_extension.CppExtension('pytorch_missing.indices_dot_product', ['pytorch_missing/csrc/indices_dot_product.cpp'], extra_compile_args=['-O3']),
-    cpp_extension.CppExtension('pytorch_missing.indices_scatter', ['pytorch_missing/csrc/indices_scatter.cpp'], extra_compile_args=['-O3'])
+    cpp_extension.CppExtension('pytorch_missing.indices_scatter', ['pytorch_missing/csrc/indices_scatter.cpp'], extra_compile_args=['-O3']),
+    cpp_extension.CppExtension('pytorch_missing.ranges', ['pytorch_missing/csrc/ranges.cpp'], extra_compile_args=['-O3'])
 ]
 
 if torch.cuda.is_available():
     ext_modules.append(cpp_extension.CUDAExtension('pytorch_missing.indices_dot_product_cuda', ['pytorch_missing/csrc/cuda/indices_dot_product.cu'], extra_compile_args={'cxx': ['-O3'], 'nvcc': ['-O3']}))
     ext_modules.append(cpp_extension.CUDAExtension('pytorch_missing.indices_scatter_cuda', ['pytorch_missing/csrc/cuda/indices_scatter.cu'], extra_compile_args={'cxx': ['-O3'], 'nvcc': ['-O3']}))
+    ext_modules.append(cpp_extension.CUDAExtension('pytorch_missing.ranges_cuda', ['pytorch_missing/csrc/cuda/ranges.cu'], extra_compile_args={'cxx': ['-O3'], 'nvcc': ['-O3']}))
 
 setup_args = dict(
     name='pytorch_missing',
