@@ -7,7 +7,7 @@ Module with utils for working ranges.
 """
 import torch
 
-from pytorch_missing.ranges import mrange
+from pytorch_missing.ranges_cpu import mrange as mrange_cpu
 from pytorch_missing.ranges_cuda import mrange_cuda
 
 
@@ -23,5 +23,4 @@ def mrange(ranges: torch.Tensor) -> torch.Tensor:
 
     if ranges.is_cuda:
         return mrange_cuda(ranges)
-
-    return mrange(ranges)
+    return mrange_cpu(ranges)

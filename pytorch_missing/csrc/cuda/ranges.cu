@@ -24,15 +24,15 @@ torch::Tensor mrange(torch::Tensor ranges) {
         return torch::empty({0}, ranges.options());
     }
     auto interval_sizes = ranges.index({torch::indexing::Slice(), 1}) - ranges.index({torch::indexing::Slice(), 0});
-    auto range_offsets = interval_sizes.cumsum(0);
+    auto range_offsets = torch::empty({ranges.size(0) + 1}, ranges.options());
+    range_offsets.index({0}).fill_(0);
+    range_offsets.index({torch::indexing::Slice(1, torch::indexing::None)}).copy_(interval_sizes.cumsum(0));
     auto total_size = range_offsets.index({-1}).item<long>();
     auto res = torch::empty({total_size}, ranges.options());
 
     if (total_size == 0) {
         return res;
     }
-
-    range_offsets = torch::cat({torch::tensor({0}, ranges.options()), range_offsets}, 0);
 
     AT_DISPATCH_INTEGRAL_TYPES(ranges.scalar_type(), "mrange_cuda", ([&] {
         mrange_cuda_kernel<scalar_t><<<BLOCKS(ranges.size(0)), THREADS>>>(

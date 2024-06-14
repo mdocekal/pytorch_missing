@@ -22,7 +22,7 @@ with open("requirements.txt") as f:
 ext_modules = [
     cpp_extension.CppExtension('pytorch_missing.indices_dot_product', ['pytorch_missing/csrc/indices_dot_product.cpp'], extra_compile_args=['-O3']),
     cpp_extension.CppExtension('pytorch_missing.indices_scatter', ['pytorch_missing/csrc/indices_scatter.cpp'], extra_compile_args=['-O3']),
-    cpp_extension.CppExtension('pytorch_missing.ranges', ['pytorch_missing/csrc/ranges.cpp'], extra_compile_args=['-O3'])
+    cpp_extension.CppExtension('pytorch_missing.ranges_cpu', ['pytorch_missing/csrc/ranges.cpp'], extra_compile_args=['-O3'])
 ]
 
 if torch.cuda.is_available():
