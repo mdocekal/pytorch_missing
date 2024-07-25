@@ -137,7 +137,7 @@ class IndicesWeightedScatterSum(torch.autograd.Function):
         :param indices: indices matrix
         :param weights: weights vector for each index pair
 
-        :return: The reduced matrix of shape (max(indices[:, 1]) + 1, val.shape[1])
+        :return: The reduced matrix of shape (max(indices[0, :]) + 1, val.shape[1])
         """
 
         if val.is_cuda:
@@ -189,7 +189,7 @@ def indices_weighted_scatter_sum(val: torch.Tensor, indices: torch.Tensor, weigh
     :param val: values matrix
     :param indices: indices matrix
     :param weights: weights vector for each index pair
-    :return: The reduced matrix of shape (max(indices[:, 1]) + 1, val.shape[1])
+    :return: The reduced matrix of shape (max(indices[0, :]) + 1, val.shape[1])
     """
 
     return IndicesWeightedScatterSum.apply(val, indices, weights)

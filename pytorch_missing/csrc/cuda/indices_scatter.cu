@@ -34,7 +34,7 @@ __global__ void indices_weighted_scatter_sum_cuda_kernel(const scalar_t* val, co
  * @param val: values matrix
  * @param indices: indices matrix
  * @param weights: weights vector for each index pair
- * @return The reduced matrix of shape (max(indices[:, 1]) + 1, val.shape[1])
+ * @return The reduced matrix of shape (max(indices[0, :]) + 1, val.shape[1])
  */
 torch::Tensor indices_weighted_scatter_sum(torch::Tensor val, torch::Tensor indices, torch::Tensor weights) {
     auto res = torch::zeros({indices.index({0}).max().item<int>() + 1, val.size(1)}, val.options());
